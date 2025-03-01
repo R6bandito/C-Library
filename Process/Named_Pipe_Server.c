@@ -57,7 +57,7 @@ void ConnectedCheck(CheckParam* param) {
     if (PeekNamedPipe(param->hPipe , NULL , 0 , NULL , &ByteVal , NULL) == FALSE) {
       DWORD dwError = GetLastError();
       if (dwError == ERROR_BROKEN_PIPE) {
-        printf("Client Disconnected\n");
+        printf("A Client Disconnected\n");
         SetEvent(param->hEvent);
         ExitThread(0);
       }

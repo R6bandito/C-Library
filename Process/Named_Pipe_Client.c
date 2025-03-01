@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <windows.h>
 
+#define BUFFER_SIZE 1024
+
 // 连接到命名管道
-void ConnectToPipe(HANDLE* hPipe , DWORD* dwRead) {
+void ConnectToPipe(HANDLE* hPipe) {
   *hPipe = CreateFile(
     TEXT("\\\\.\\pipe\\SystemMonitor"),   // 管道名称
     GENERIC_READ | GENERIC_WRITE,         // 读写权限
@@ -20,13 +22,30 @@ void ConnectToPipe(HANDLE* hPipe , DWORD* dwRead) {
   printf("CreateFile Success\n");
 }
 
+void ReadFromPipe(HANDLE* hPipe , DWORD* dwRead , char* buffer) {
+  WINBOOL Success;
+  DWORD Data;
+  Success = ReadFile(*hPipe , buffer , BUFFER_SIZE , dwRead , NULL);
+  if (!Success) {
+    fprintf(stderr , "Read from Pipe Failed\n");
+    CloseHandle(*hPipe);
+    exit(EXIT_FAILURE);
+  }
+  Data = *((DWORD*)buffer);
+  printf("The System Runing Time is: %d h %d m\n" , Data / 60 , Data % 60);
+}
+
 int main(int argc , const char* argv[]) {
   HANDLE hPipe;
   DWORD dwRead;
-  DWORD minutes;
-  ConnectToPipe(&hPipe , &dwRead);
+  char buffer[BUFFER_SIZE];
 
-  while(1) {}
+  ConnectToPipe(&hPipe);
+
+  while(1) {
+    ReadFromPipe(&hPipe , &dwRead , buffer);
+    Sleep(1000);
+  }
 
   return 0;
 }
