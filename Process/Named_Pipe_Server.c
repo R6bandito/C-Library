@@ -6,6 +6,11 @@
 #include <stdio.h>
 #include <windows.h>
 
+#define MAX_CLIENT 3
+
+DWORD Clients[MAX_CLIENT] = {0};
+DWORD Threadflag = 0;
+
 // 检查客户端是否断开连接的参数包
 typedef struct {
   HANDLE hPipe;
@@ -21,7 +26,7 @@ void CreateMyPipe(HANDLE* hPipe) {
 
   *hPipe = CreateNamedPipe(
     TEXT("\\\\.\\pipe\\SystemMonitor"),  // 管道名称
-    PIPE_ACCESS_DUPLEX,                  // 打开模式：双向管道
+    PIPE_ACCESS_DUPLEX,                  // 打开模式：双向（服务端仅需要推送数据）
     PIPE_TYPE_MESSAGE |                  // 管道模式：消息管道
     PIPE_READMODE_MESSAGE |              // 读取模式：消息读取模式
     PIPE_WAIT,                           // 阻塞模式
@@ -59,6 +64,8 @@ void ConnectedCheck(CheckParam* param) {
       if (dwError == ERROR_BROKEN_PIPE) {
         printf("A Client Disconnected\n");
         SetEvent(param->hEvent);
+        free(param);
+        Clients[--Threadflag] = 0;
         ExitThread(0);
       }
     }
@@ -75,8 +82,12 @@ void WriteToPipe(HANDLE hPipe) {
   DWORD dwWritten;
   HANDLE hEvent = Interrupt();
 
-  CheckParam param = {hPipe , hEvent};
-  CreateThread(NULL , 128 , (LPTHREAD_START_ROUTINE)ConnectedCheck , &param , 0 , NULL);
+  // 再创建一个线程，用于检查客户端是否断开连接。
+  CheckParam* pParam = malloc(sizeof(CheckParam));
+  ZeroMemory(pParam , sizeof(CheckParam));  // 初始化为0
+  pParam->hPipe = hPipe;
+  pParam->hEvent = hEvent;
+  CreateThread(NULL , 1024 , (LPTHREAD_START_ROUTINE)ConnectedCheck , pParam , 0 , NULL);
 
   while(1) {
     tickCount = GetTickCount() / 60000;
@@ -100,19 +111,29 @@ void WriteToPipe(HANDLE hPipe) {
 
 // 等待客户端连接
 void waitForClient(HANDLE hPipe) {
+  HANDLE hEvent = Interrupt();
   DWORD ThreadID;
   while(1) {
     if (ConnectNamedPipe(hPipe , NULL) == FALSE) {}
     else {
-      printf("A Client Successfully Connected\n");
       // 为每个客户端创建一个线程，可以处理多个客户端。
-      if (!CreateThread(NULL , 128 , (LPTHREAD_START_ROUTINE)WriteToPipe , hPipe , 0 , &ThreadID)) {
-        fprintf(stderr , "CreateThread Failed\n");
-        CloseHandle(hPipe);
-        hPipe = NULL;
-        return;
+      if (Clients[MAX_CLIENT - 1] == 0) {
+        if (!CreateThread(NULL , 1024 , (LPTHREAD_START_ROUTINE)WriteToPipe , hPipe , 0 , &ThreadID)) {
+          fprintf(stderr , "CreateThread Failed\n");
+          CloseHandle(hPipe);
+          hPipe = NULL;
+          return;
+        }
+        printf("A Client Successfully Connected\n");
+        Clients[Threadflag++] = ThreadID;
+        CreateMyPipe(&hPipe);  //重新创建管道实例
+
+        if (Clients[MAX_CLIENT - 1] != 0 && Threadflag == MAX_CLIENT) {
+          printf("The Maximum Number of Clients Reached\n");
+        }
+        continue;
       }
-      CreateMyPipe(&hPipe);  //重新创建管道实例
+      else { Sleep(1000);}
     }
   }
 }
