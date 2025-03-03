@@ -23,7 +23,7 @@
 
 ​	当CPU请求的数据不在缓存中时，称为**缓存未命中**。此时CPU必须从主存中读取数据，并将其加载到缓存中以供后续使用。
 
-![](D:\my files\GitHub\C-Library\Pic\Cache.png)
+![](Pic/Cache.png))
 
 #### **缓存层次结构**
 
