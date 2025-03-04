@@ -1,8 +1,109 @@
 # C-Library
 
+## C模拟实现默认函数参数特性
+
+​	**方法一：结构体封装参数 + 默认初始化**
+
+​	将参数打包封装到一个结构体中，以结构体作为整体进行传参。
+
+```c
+#define DEFAULT {.length = 0 , .message = "Default Params Call"}
+
+typedef struct {
+  size_t length;
+  const char* message;
+} Param;
+
+void function_A(Param param) {
+  int length = param.length ? param.length : 0;
+  const char* message = param.message ? param.message : "Hello, C!";
+  printf("length: %d, message: %s\n", length, message);
+}
+
+void CallFunction_A() {
+  function_A((Param)DEFAULT);  // 默认参数调用
+  function_A((Param){.length = 512, .message = "All Custom Params Call."});  // 自定义参数调用
+  function_A((Param){.message = "Part of Param Call."});  // 部分参数调用
+}
+```
+
+该方法尽管实现较为复杂，但优点是直观易读。
+
+​	**方法二：使用可变参数函数**
+
+​	通过`<stdarg.h>`处理可变参数，手动设置默认值。
+
+```c
+void Function_B(size_t Var_Parcount , const char* message, ...) {
+  assert(Var_Parcount == 0 || Var_Parcount == 1 || Var_Parcount == 2);
+  va_list args;
+  va_start(args, message);
+
+  // 默认值
+  int flag = 0;  
+  size_t length = 0;
+
+	if (Var_Parcount == 1) {
+    length = va_arg(args, size_t);
+  }
+  else if (Var_Parcount == 2) {
+    length = va_arg(args, size_t);
+    flag = va_arg(args, int);
+  }
+
+  printf("length: %d, message: %s, flag: %d\n", length, message, flag);
+  va_end(args);
+}
+
+void CallFunction_B() {
+  Function_B(0, "Default Call");  // 默认参数调用
+  Function_B(1, "Part of Param Call", 1024);  // 部分参数调用
+  Function_B(2, "All Custom Params Call", 2048, 1);  // 自定义参数调用
+  //Function_B(3, "Error Params Call", 4096, 1);  // 错误参数调用
+}
+```
+
+尽管没有使用到复杂的结构体与宏，但是逻辑设计容易出错，不是很喜欢这种写法。
+
+​	**方法三：函数重载模拟**
+
+​	通过不同名称的函数模拟重载，调用时自动补全参数。
+
+```c
+// 完整参数函数
+void Function_Full(const char* message, size_t length, int flag) {
+  printf("length: %d, message: %s, flag: %d\n", length, message, flag);
+}
+
+// 部分参数函数
+void Function_Two(const char* message, size_t length) {
+  Function_Full(message, length, 0);
+}
+
+// 部分参数函数
+void Function_One(const char* message) {
+  Function_Full(message, 0, 0);
+}
+
+// 默认参数函数
+void Function_Default() {
+  Function_Full("Default Call", 0, 0);
+}
+
+void CallFunction_Full() {
+  Function_Default();  // 默认参数调用
+  Function_One("Part of Param Call");  // 部分参数调用
+  Function_Full("All Custom Params Call", 2048, 1);  // 自定义参数调用
+}
+```
+
+通过函数之间的嵌套调用来设置默认参数，很直观，设计逻辑也很简单，但是多个函数也增加了维护的复杂度。这种写法个人也十分喜欢。
+
+
+
 ## 高速缓存 (Cache) 
 
-​	**高速缓存（Cache**是位于CPU和主存储器（RAM）之间的一种小容量、高速度的存储器。它的主要目的是减少CPU访问数据时的等待时间，提高系统的整体性能。Cache比主存快得多，但是缓存的容量非常有限，远远小于主存。
+​	**高速缓存（Cache)**是位于CPU和内存之间的一种小容量、高速度的存储器。它的主要目的是减少CPU访问数据时的等待时间，提高系统的整体性能。Cache比主存快得多，但是缓存的容量非常有限，远远小于主存。
 
 #### **为什么需要高速缓存?**
 
@@ -23,7 +124,7 @@
 
 ​	当CPU请求的数据不在缓存中时，称为**缓存未命中**。此时CPU必须从主存中读取数据，并将其加载到缓存中以供后续使用。
 
-![](Pic/Cache.png))
+![](Pic/Cache.png)
 
 #### **缓存层次结构**
 
