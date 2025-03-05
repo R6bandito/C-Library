@@ -1,5 +1,127 @@
 # C-Library
 
+## 柔性数组与可变长数组
+
+​	柔性数组是 C99 标准中引入的一种特性，**主要用于在结构体的末尾声明一个长度未定的数组**。它允许**更高效地管理动态内存**，尤其是在需要将**结构体和变长数据连续存储的场景**中。
+
+### **基本定义：**
+
+​	在结构体的**最后一个成员位置**，声明一个未指定长度的数组（在C99标准下，【】内不需要写0。但是对于部分编译器为了兼容性可以写0）。
+
+```c
+// 柔性数组 C99标准写法
+typedef struct {
+  int length;
+  int data[];
+} Array_Int;
+
+// 旧式兼容性写法。
+// typedef struct {
+//   int length;
+//   int data[0];
+// } Array_Int;
+```
+
+​	注意：一个结构体只能包含一个柔性数组！像下列的写法是错误的。
+
+```c
+typedef struct {
+  int length_int;
+  int length_char;
+  int data_int[];
+  char data_char[];
+} Array_Int;
+//这种写法是完全错误的！
+```
+
+- **柔性数组本身不占用结构体的内存空间**（`sizeof(Array_Int)` 不包含 `data` 的大小）。
+- **需要手动分配内存来容纳结构体本身和柔性数组所需的空间。**
+
+### **使用：**
+
+​	计算好内存之后直接通过`malloc`一次分配进行使用。**计算总内存大小：结构体本身 + 柔性数组所需空间。**
+
+```c
+Array_Int* function_NewArray(int length) {
+  assert(length > 0);
+  Array_Int* myArr = (Array_Int*)malloc(sizeof(Array_Int) + sizeof(int) * length);
+  if (!myArr) {
+    fprintf(stderr , "Error on Allocate Array.");
+    return 0;
+  }
+  myArr->length = length;
+}
+```
+
+​	访问时直接通过柔性数组名操作数据：
+
+```c
+  for(int i = 0 ; i < Arr->length ; ++i) {
+    printf("%d  ", Arr->data[i]);
+  }
+```
+
+​	**内存释放时只需要释放一次。**（传统的变长数组需要两次释放）。
+
+```c
+free(s); // 同时释放结构体和柔性数组的内存
+```
+
+
+
+### **传统可变长数组：**
+
+```c
+typedef struct {
+  int length;
+  char* data;
+} Old_Arr;
+```
+
+​	传统可变长数组相比起柔性数组而言：
+
+1：**需要两次内存分配**，结构体和 `data` 指向的内存块需要分别分配。
+
+```c
+// 第一次内存分配（结构体）
+  Old_Arr* old_arr = (Old_Arr*)malloc(sizeof(Old_Arr));
+  if (!old_arr) {
+	...
+  }
+  old_arr->length = length;
+
+  // 第二次内存分配（分配数组空间）
+  old_arr->data = (char*)malloc(length + 1);
+  if (!old_arr->data) {
+ 	...
+  }
+```
+
+2：**传统可变长数组内部数据是不连续的**，结构体和数据分离，可能影响缓存效率。
+
+3：多次分配可能产生内存碎片。
+
+### **实际应用场景示例：**
+
+​	**网络通信协议包**
+
+```c
+// 自定义协议包：头部 + 变长负载
+struct Packet {
+    int type;
+    int payload_length;
+    unsigned char payload[]; // 柔性数组存储负载数据
+};
+
+// 创建数据包
+struct Packet *packet = malloc(sizeof(struct Packet) + data_length);
+packet->type = 1;
+packet->payload_length = data_length;
+memcpy(packet->payload, raw_data, data_length);
+```
+
+
+
 ## C模拟实现默认函数参数特性
 
 ​	**方法一：结构体封装参数 + 默认初始化**
