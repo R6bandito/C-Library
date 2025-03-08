@@ -2,9 +2,11 @@
 
 ## C RAII思想模拟实现
 
-​	**什么是RAII?** 
+### **什么是RAII?** 
 
 ​	RAII（Resource Acquisition Is Initializing），也就是**资源获取即初始化**。其核心思想是：**将资源的获取与对象的初始化绑定，并在对象生命周期结束时自动释放资源**。虽然在C语言中并没有像C++一样的离开作用域自动调用析构函数，但可以通过一些途径来模拟其实现。
+
+### 依赖于gcc/clang工具的特性实现：
 
 ​	对于 `GCC/Clang` 编译器，其提供了关键工具：
 
@@ -20,7 +22,56 @@ __attribute__((cleanup))
 void cleanup_function(void *ptr);
 ```
 
+```c
+// 1：可以利于GCC/Clang编译器的 __attribute__((cleanup)) 的拓展工具来实现RAII
+// 清理函数.
+void auto_clean_up(char** cptr) {
+  if (*cptr) {
+    free(*cptr);
+    printf("Auto CleanUP Has Been Called.\n");
+  }
+  return;
+}
+void Example_Function(size_t length) {
+  assert (length > 0);
+  // 使用 __attribute__((cleanup)) 注册清理函数.
+  //char* myMessage __attribute__((cleanup(auto_clean_up))) = (char*)malloc(length + 1);
 
+  RAII_VARIBLE(char* , myMessage , auto_clean_up , (char*)malloc(length + 1));
+  if (!myMessage) {
+    fprintf(stderr , "Allocation Failed.");
+    return;
+  }
+}
+
+```
+
+ 	如上述示例，使用`__attribute__`工具为局部变量注册了清理函数之后，当程序流程离开变量的作用域时，会自动调用所注册的`auto_clean_up`方法。**被管理的变量`Message`的地址将会被传入清理函数之中。**由于`Message`为指针变量且传递的是地址，因此清理函数在接受参数时应该接受的是双指针（即指向指针变量的指针）。
+
+```c
+// 使用宏进一步封装代码.
+#define RAII_VARIBLE(type , name , cleanup_function , init_Command) \
+                  type name __attribute__((cleanup(cleanup_function))) = init_Command 
+void Example_Function(size_t length) {
+  assert (length > 0);
+  RAII_VARIBLE(char* , myMessage , auto_clean_up , (char*)malloc(length + 1));
+  if (!myMessage) {
+        ....
+  }
+  // 多个RAII可以嵌套使用.
+  RAII_VARIBLE(int* , myInt , auto_clean_up_int , (int*)malloc(sizeof(int) * SIZE));
+  		....
+  }
+}
+```
+
+​	如上，多个`__attribute__`可以嵌套使用，
+
+应值得注意的是：
+
+​	1.**该工具所实现的RAII所针对的是局部变量**，若有变量的作用域是全局的，则清理函数不会在程序结束时自动调用。  
+
+​	2.`__attribute__`工具所具有的特性是依赖于gcc/Clang的实现的，因此对运行的环境有要求，跨平台能力不好。
 
 
 
