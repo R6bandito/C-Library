@@ -143,6 +143,9 @@ void Mem_Clean(void* ptr) {
 
 void Example_Func() {
   FILE* fp = fopen("C_Array.c" , "r");
+  if (fp == NULL) {
+    goto FAL;
+  }
   RAII_Handle file_handle;
   RAII_Init(&file_handle , fp , File_Clean , "NULL");
 
