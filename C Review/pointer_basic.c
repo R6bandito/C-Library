@@ -73,11 +73,17 @@
           ------------------------------------
             example:
               const int *p;           // 保护指针p指向的内容
-              int const *p;           // 保护指针p本身
-              const int const *p;     // 双重保护
+              int* const p;           // 保护指针p本身
+              const int* const p;     // 双重保护
               int *p;                 // 无保护
           ------------------------------------
 
+      
+      10.空指针.
+        |__ 空指针是一个特殊的指针值.表示不指向任何内存区域.
+        |__ 常见的定义形式为  #define NULL ((void *)0).
+        |__ 注意:空指针的0值指的是逻辑上的无效，而并非物理层面上的无效.部分嵌入式系统0地址可能是有效的，因此空指针在这些系统上也会定义为别的逻辑“无效”的值.
+        |__ 在定义指针变量时，一定要紧跟着使用空指针对相关变量进行初始化.
 
   =========================================================================
 
@@ -93,8 +99,11 @@
   void pointer_example_demo_2( void );
   void pointer_example_demo_3( void );
   void pointer_example_demo_4( void );
+  void pointer_example_demo_5( void );
+  void pointer_example_demo_6( void );
+  void pointer_example_demo_7( void );
 
-
+  static void utils_display( int array[] );
 // -------------------------------------------------
 
 
@@ -109,6 +118,9 @@ int main( void )
   pointer_example_demo_2();
   pointer_example_demo_3();
   pointer_example_demo_4();
+  pointer_example_demo_5();
+  pointer_example_demo_6();
+  pointer_example_demo_7();
   
 
   return 0;
@@ -321,7 +333,7 @@ void pointer_example_demo_3( void )
       自减运算反向遍历  ptr_int[1] 地址: 000000000061FDD4, ptr_int[1] 地址对应值: 1
       自减运算反向遍历  ptr_int[0] 地址: 000000000061FDD0, ptr_int[0] 地址对应值: 0
       ptr_int += 2 地址为: 000000000061FDE0, 值为: 4
-      ptr_int += 2 地址为: 000000000061FDDC, 值为: 3
+      ptr_int -= 1 地址为: 000000000061FDDC, 值为: 3
       ptr_end - ptr_start = 4 (相差的元素个数)
       p指向的元素在q之前.
   */
@@ -353,6 +365,210 @@ void pointer_example_demo_4( void )
   int *ptr_ex = NULL;
   printf("ptr_ex的地址: %p\n", ptr_ex);
   // printf("ptr_ex的值: %p\n", *ptr_ex);         // 注意，对空指针解引用会导致段错误!日常使用中要防止对空指针进行解引用.
+
+  int exam = 2;
+  ptr_ex = &exam;
+  
+  // 指针判断.
+  if ( ptr_ex == NULL )                           // 显示判断 if ( pointer == NULL ){ ... }
+  {
+    printf("ptr_ex 为空指针(显示判断).\n");
+  }
+  else 
+  {
+    printf("ptr_ex 非空指针(显示判断).\n");
+  }
+
+
+  if ( !ptr_ex )                                  // 隐式比较(简洁写法.) if ( !pointer ) { ... }  
+  {
+    printf("ptr_ex 为空指针(隐式布尔转换判断).\n");
+  }
+  else 
+  {
+    printf("ptr_ex 非空指针(隐式布尔转换判断).\n");
+  }
+
+  // if ( ptr_ex == 0 ) { ... }                    // 易引发误解，不宜使用.
+
+
+  // 指针的初始化.
+  int *ptr_noInitial;                             // 未初始化指针. 危险！值不确定，可能指向任何地方.
+  int *ptr_Initial = NULL;                        // 已初始化的指针，有明确状态（地址00000000）. 因此声明指针后要紧跟初始化.
+  printf("ptr_noInitial 地址: %p, 值: %d\n", ptr_noInitial, *ptr_noInitial);
+  printf("ptr_Initial 地址: %p\n", ptr_Initial);     // 注意：这里再次提醒一下，不能对空指针解引用！
+  printf("===============================================\n\n");
+  // printf("ptr_Initial 地址: %p, 值: %d\n", ptr_Initial, *ptr_Initial);     // Segmentation fault!对空指针解引用造成段错误.
+
+  /*
+    @result : 
+      ptr_ex的地址: 0000000000000000
+      ptr_ex 非空指针(显示判断).
+      ptr_ex 非空指针(隐式布尔转换判断).
+      ptr_noInitial 地址: 000000000061FDC9, 值: 0
+      ptr_Initial 地址: 0000000000000000
+  */
+  /*
+    可以看到. 声明但是未初始化的指针是随机指向一个地址的. 而这个地址的值也是不确定的. 
+    因此声明指针后一定要初始化!
+  */
+}
+
+
+void pointer_example_demo_5( void )
+{
+  printf("=========== 指针与const关键字 ===========\n");
+  int example_ver_alpha = 50;               // 无const保护.
+  int example_ver_bravo = 99;
+  int *ptr_int = &example_ver_alpha;
+  printf("修改前 ptr_int 所指向地址: %p, 值: %d\n", ptr_int, *ptr_int);
+
+  *ptr_int = 25;                            // 无 const 保护，可修改指针所指地址的内容.
+  printf("内容修改后 ptr_int 所指向地址: %p, 值: %d\n", ptr_int, *ptr_int);
+
+  ptr_int = &example_ver_bravo;             // 无 const 保护，可修改指针本身指向的地址.
+  printf("指针指向地址修改后 ptr_int 所指向地址: %p, 值: %d\n", ptr_int, *ptr_int);
+
+
+  const int *ptr_content_protect = &example_ver_alpha;      // const int *p, p所指向的内容受保护,不能修改p所指向地址的内容.
+  // int const *ptr_content_protect = &example_ver_alpha;   // 同上
+  printf("修改前 const ptr_content_protect 所指向地址: %p, 值: %d\n", ptr_content_protect, *ptr_content_protect);
+  // *ptr_content_protect = 66;                             // 不能修改内容.
+  ptr_content_protect = &example_ver_bravo;                 // 可以修改所指向的地址.(可以指向不同地址)
+  printf("修改后 const ptr_content_protect 所指向地址: %p, 值: %d\n", ptr_content_protect, *ptr_content_protect);
+
+  int* const ptr_dir_protect = &example_ver_alpha;          // int* const p,p所指向的地址受保护，地址内容不受保护.
+  printf("修改前 const ptr_dir_protect 所指向地址: %p, 值: %d\n", ptr_dir_protect, *ptr_dir_protect);
+  *ptr_dir_protect = 66;                                    // 可以修改内容.
+  // ptr_dir_protect = &example_ver_bravo;                  // 不可以修改指向.
+  printf("修改后 const ptr_dir_protect 所指向地址: %p, 值: %d\n", ptr_dir_protect, *ptr_dir_protect);
+
+
+  const int* const ptr_double_protect = &example_ver_alpha; // const int* const p, p所指向的内容及其所指向的地址都受保护,不能修改p指向的地址以及地址对应的内容.
+  // *ptr_double_protect = 66;                              // 不能修改内容.
+  // ptr_double_protect = &example_ver_bravo;               // 所指向的地址也不能修改.
+  printf("===============================================\n\n");
+
+  /*
+    @result : 
+      修改前 ptr_int 所指向地址: 000000000061FDFC, 值: 50
+      内容修改后 ptr_int 所指向地址: 000000000061FDFC, 值: 25
+      指针指向地址修改后 ptr_int 所指向地址: 000000000061FDF8, 值: 99
+      修改前 const ptr_content_protect 所指向地址: 000000000061FDFC, 值: 25
+      修改后 const ptr_content_protect 所指向地址: 000000000061FDF8, 值: 99
+      修改前 const ptr_dir_protect 所指向地址: 000000000061FDFC, 值: 25
+      修改后 const ptr_dir_protect 所指向地址: 000000000061FDFC, 值: 66
+  */
+}
+
+
+void pointer_example_demo_6( void )
+{
+  printf("=========== 指针与数组关系 ===========\n");
+  
+  int array[4] = { 1, 2, 3, 4 };
+  int *ptr_int = array;                   // 数组名即首元素地址.
+
+  ptr_int = &array[2];                     // 指针可以修改指向.
+
+  // 数组名不能修改指向,但是可以修改指向地址的内容. 其类型等价于 int* const p.
+  // array = &array[2];                    // 编译错误. 数组名是常量指针，不能修改指向.
+  *array = 99;                             // 数组名可以指向的内容. 等价于 array[0] = 99; 
+
+  // 数组的下标引用 与 指针遍历是等价的. 即 array[j] 等价于 *(array + j).
+  for( int j = 0; j < sizeof(array)/sizeof(array[0]); j++ )
+  {
+    printf("(下标遍历)array[%d] 值为 %d\n", j, array[j]);
+  }
+
+  printf("\n");
+
+  for( int j = 0; j < sizeof(array)/sizeof(array[0]); j++ )
+  {
+    // 前面说过数组名作为常量指针不能够修改其指向，而此处*(array + j)却通过编译. 是因为此处借助数组名array进行偏移所得的结果是临时变量，并没有修改array的指向.
+    // *(array + j)可以通过编译, 而 array = (array + j);  *array; 这两句是无法通过编译的，因为修改了常量指针.
+    printf("(指针遍历)array[%d] 值为 %d\n", j, *(array + j)); 
+  }
+
+
+  // 数组名在大多数表达式中会“退化”为指向首元素的指针，但在两种情况下保持数组类型：
+  // 1.
+  {
+    // 在使用sizeof(数组名)时，会得出整个数组的长度;当使用sizeof(指针)时，则固定输出指针大小(64位系统指针占8字节).这是数组名与指针的区别之一.
+    printf("sizeof(array) = %zu\n", sizeof(array));     // 输出:16 (若int占4字节).返回整个数组的字节数，而非指针大小.
+    printf("sizeof(ptr_int) = %zu\n", sizeof(ptr_int)); // 输出:8 (指针大小).
+  }
+
+  // 2.
+  {
+    int (*p)[4] = &array;                      // 注意:array是指向首元素的地址.&array是整个数组的指针(相当于对数组类型取地址),其值与数组首元素地址相同，但步长不同.
+    printf("array首元素地址: %p\n", array);
+    printf("array数组地址: %p\n", p);
+
+    // 指向数组地址的指针与数组首元素指针所跨越的步长是不同的！
+    printf("(首元素地址)array + 1 地址: %p, 步长: %td\n",(array + 1), (char *)(array + 1) - (char *)(array));
+    printf("(数组地址)p + 1 地址: %p, 步长: %td\n", (p + 1), (char *)(p + 1) - (char *)(p));
+    /*
+      @result : 
+        array首元素地址: 000000000061FDF0
+        array数组地址: 000000000061FDF0
+        (首元素地址)array + 1 地址: 000000000061FDF4, 步长: 4
+        (数组地址)p + 1 地址: 000000000061FE00, 步长: 16
+    */
+    /*
+      p为指向整个数组的指针 步长为整个数组的大小.
+      array为指向元素首地址的指针. 步长为一个 sizeof(int);
+    */
+  }
+
+  // 当数组名传递给函数时，它退化为指针，sizeof 无法获得数组长度.
+  utils_display(array);
+}
+
+static void utils_display( int array[] )
+{
+  // 数组名作为函数参数传入时,发生退化. 等价于 int *array. 调用sizeof(array)返回指针的大小，而不是数组的大小！ 
+  printf("传入的数组大小: %d\n", sizeof(array));
+}
+
+
+void pointer_example_demo_7( void )
+{
+  printf("=========== 多级指针 ===========\n");
+
+  int value = 30;
+  int *ptr_p1 = &value;                    // 一级指针,指向int的指针.
+  printf("示例变量 value 的地址: %p, 值: %d\n", &value, value);
+  printf("ptr_p1 自身地址: %p, ptr_p1 所指向的地址: %p, 地址所对应的值: %d\n", &ptr_p1, ptr_p1, *ptr_p1);
+
+  int **ptr_p2 = &ptr_p1;   // 二级指针. 指向指针的指针.p2有一个自身的地址，p2指向的地址为p1自身的地址.
+  // 注意!p2指向的为p1，*(p2) 对p2解一次引用得到的是p1的地址. *(*p2) 对p2解两次引用才能拿到底层p1所指向的内存的值.
+  printf("ptr_p2 自身地址: %p, ptr_p2 所指向的地址: %p, 地址所对应的值: %d\n", &ptr_p2, ptr_p2,*(*(ptr_p2)));  
+
+  
+  int ***ptr_p3 = &ptr_p2;  // 三级指针. 指向指针的指针的指针. p3有一个自身地址，p3指向的地址为p2自身的地址.
+  // 注意！p3指向为p2,*(p3) 对p3解一次引用得到p2, *(*(p3)) 对p3解两次引用得到p1, *(*(*(p3))) 对p3解三次引用才能拿到p1所指向内存的值.
+  printf("ptr_p3 自身地址: %p, ptr_p3 所指向的地址: %p, 地址所对应的值: %d\n", &ptr_p3, ptr_p3,*(*(*(ptr_p3))));  
+
+  *ptr_p1 = 40;
+  printf("一级指针ptr_p1修改后. value的值: %d\n", value);
+
+  *(*ptr_p2) = 50;
+  printf("二级指针ptr_p2修改后. value的值: %d\n", value);
+
+  *(*(*ptr_p3)) = 60;
+  printf("三级指针ptr_p3修改后. value的值: %d\n", value);
+  /* 
+    多级指针是链式结构. 上述三级指针调用链如下： p3 -> p2 -> p1 -> value. 
+    更高级(4级 5级 ...)指针以此类推.每增加一级指针，就需要多一次解引用才能获取实际数据.
+    每一级指针都是独立的变量，都有自己的内存地址.
+    可以通过任意级别的指针修改到最终数据.
+  */
+
+  int value_2 = 10;
+  const int *p1 = &value_2;
+  const int **pp1 = &p1;
+
 
 
 }
