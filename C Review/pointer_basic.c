@@ -55,6 +55,9 @@
       7.函数指针.
         |__ 顾名思义，指向函数的指针.
         |__ 存储函数的入口地址，可以通过该指针调用函数.
+        |__ 函数指针允许程序将函数作为参数传递、存储在数组中或从函数返回.
+        |__ 函数名本身就是函数的地址（和数组名类似）.
+        |__ 函数指针的类型由函数的返回值类型和参数类型决定.
         |__ 函数指针的典型用途就是 **回调函数**.
           ------------------------------------
             example:
@@ -95,15 +98,22 @@
 
 // -------------------------------------------------
   // 各个示例函数.
-  void pointer_example_demo_1( void );
-  void pointer_example_demo_2( void );
-  void pointer_example_demo_3( void );
-  void pointer_example_demo_4( void );
-  void pointer_example_demo_5( void );
-  void pointer_example_demo_6( void );
-  void pointer_example_demo_7( void );
+  void pointer_example_demo_1( void );    // 指针的基本操作（定义、取址、解引用、赋值）
+  void pointer_example_demo_2( void );    // 指针类型、大小、步长、解引用含义
+  void pointer_example_demo_3( void );    // 指针算术运算（自增/减、加减、比较、求距离）
+  void pointer_example_demo_4( void );    // 空指针的定义、初始化、判断及注意事项
+  void pointer_example_demo_5( void );    // const 与指针的四种保护机制
+  void pointer_example_demo_6( void );    // 数组与指针的关系（数组名作为常量指针、下标与指针等价、sizeof 差异、数组指针的步长）
+  void pointer_example_demo_7( void );    // 多级指针（一级到三级）及其与 const 的混合规则
+  void pointer_example_demo_8( void );    // 函数指针的声明、赋值、调用、函数指针数组、空函数指针检查
+  void pointer_example_demo_9( void );    // void* 指针的隐式转换、不能直接解引用和算术运算（GCC 扩展的说明）、强制转换后使用
 
   static void utils_display( int array[] );
+  void function_A( void );
+  int function_B_Sub( int x, int y );
+  int function_C_Add( int x, int y );
+  int function_D_Mult( int x, int y );
+  int function_E_Divide( int x, int y );
 // -------------------------------------------------
 
 
@@ -114,13 +124,15 @@ int main( void )
   // 设置控制台输出代码页为 UTF-8
   SetConsoleOutputCP(CP_UTF8);
 
-  pointer_example_demo_1();
-  pointer_example_demo_2();
-  pointer_example_demo_3();
+  pointer_example_demo_1();   
+  pointer_example_demo_2();   
+  pointer_example_demo_3();   
   pointer_example_demo_4();
   pointer_example_demo_5();
   pointer_example_demo_6();
   pointer_example_demo_7();
+  pointer_example_demo_8();
+  pointer_example_demo_9();
   
 
   return 0;
@@ -565,10 +577,166 @@ void pointer_example_demo_7( void )
     可以通过任意级别的指针修改到最终数据.
   */
 
+  // 多级指针 与 const 关键字.
+  // 对于多级指针的const保护，其规律是:从变量名开始从右向左逐层解析,每遇到一个 * 就表示一层指针,const 修饰它左边最近的那个 *.
+  // 被修饰的指针本身不可修改指向,最左边的 const 修饰最终的数据，决定其读写权限.
   int value_2 = 10;
-  const int *p1 = &value_2;
-  const int **pp1 = &p1;
+  const int *p1 = &value_2;   // 根据规律. p1可修改指向. 但*p1不能进行修改.
+  // *p1 = 50;                // 不能通过编译 *p1不能修改.
+  //p1 = &value;                // 通过编译  p1指向可修改.
+
+  const int **pp1 = &p1;      // 同理. pp1未被const修饰, *pp1未被修饰, 因此均可以更改指向和内容.被修饰的是**pp1，因此**pp1不能修改.
+  // pp1 = (const int *)&ptr_p1;    // 通过编译. pp1指向可改.
+  // *pp1 = &value;                 // 通过编译. *pp1可改.
+  // **pp1 = 50;                    // 不通过编译. **pp1不能改.
+
+  const int ***ppp1 = &pp1;   // ppp1 *ppp1 **ppp1 均未被修饰，均可改. ***ppp1被const修饰，不可更改.
+  // ***ppp1 = 50;            // 不通过编译. ***ppp1不可更改.
+
+  // 从变量名ppp2开始, ppp2未被修饰，可以修改;*ppp2被const修饰，为常量指针,不可修改;**ppp2也被const修饰,不可修改;***ppp2未被修饰，可以修改.
+  int *const *const *ppp2 = &pp1;         // ps:此处赋值操作存在类型不匹配问题,但是不影响最终编译,只做示例使用.
+  // ppp2 = &ptr_p2;          // 通过编译. ppp2指向可变.
+  // *ppp2 = &ptr_p1;         // 不通过编译. *ppp2不可修改.
+  // **ppp2 = &value;         // 不通过编译. **ppp2不可修改.
+  // ***ppp2 = 60;            // 通过编译. ***ppp2可以修改.
+
+  /* 4级及以上指针与const的关系 以此类推 */
+  printf("===============================================\n\n");
+
+  /*
+    @result:
+      示例变量 value 的地址: 000000000061FE0C, 值: 30
+      ptr_p1 自身地址: 000000000061FE00, ptr_p1 所指向的地址: 000000000061FE0C, 地址所对应的值: 30
+      ptr_p2 自身地址: 000000000061FDF8, ptr_p2 所指向的地址: 000000000061FE00, 地址所对应的值: 30
+      ptr_p3 自身地址: 000000000061FDF0, ptr_p3 所指向的地址: 000000000061FDF8, 地址所对应的值: 30
+      一级指针ptr_p1修改后. value的值: 40
+      二级指针ptr_p2修改后. value的值: 50
+      三级指针ptr_p3修改后. value的值: 60
+  */
+}
 
 
+void pointer_example_demo_8( void )
+{
+  printf("=========== 函数指针 ===========\n");
 
+  void (*__ptr_to_voidfunc)( void );    // 声明一个函数指针. 返回 void 类型，传入参数为 void.
+
+  __ptr_to_voidfunc = function_A;       // 将function_A地址赋值给__ptr_to_voidfunc.
+  // __ptr_to_voidfunc = &function_A;   // 和上面完全等价,因为函数名本身就会隐式地转换为指向该函数的指针.
+
+  __ptr_to_voidfunc();                  // 指针形式函数调用.
+
+  int (*__ptr_to_intfunc)( int, int ) = function_B_Sub; // 定义一个int (*p)( int, int )类型函数指针.
+  printf("function_B_Sub has been called. x - y = %d\n", __ptr_to_intfunc(10, 5));
+
+  // 函数指针数组.
+  int (*operator[4])( int, int ) = { function_B_Sub, function_C_Add, function_D_Mult, function_E_Divide };
+  char *operations_names[] = { "减法", "加法", "乘法", "除法" };
+
+  for( int j = 0; j < sizeof(operator)/sizeof(operator[0]); j++ )
+  {
+    printf("%s: %d\n", operations_names[j], operator[j](10, 5));
+  }
+
+  // 注意! 声明函数指针时必须加括号(). int *p(int,int)这是一个返回int *指针的函数.
+  // int (*p)(int, int) 这才是一个指向函数的指针.
+  // int *__ptr_to_func( int, int );        // 声明一个返回int *指针的函数.
+  // __ptr_to_func = function_B_Sub;  // 不通过编译.
+
+
+  // 函数指针类型与函数必须完全匹配（返回类型匹配,参数匹配）.
+  // int (*__ptr_to_func)(int);
+  // __ptr_to_func = function_C_Add;     // 编译报警！类型不匹配.
+
+  // void (*__ptr_to_funca)(int, int);
+  // __ptr_to_funca = function_D_Mult;   // 编译报警! 类型不匹配.
+
+
+  int (*__ptr_to_func)(int, int) = NULL;  // 函数指针也可使用空指针进行初始化.
+  // __ptr_to_func(5 ,10);                // 危险！调用空函数指针.
+  if ( !__ptr_to_func ) printf("函数指针为空\n");   // 在调用函数指针前先进行检查.
+  else  __ptr_to_func(5, 10);
+
+  printf("===============================================\n\n");
+}
+
+
+void pointer_example_demo_9( void )
+{
+  printf("=========== void 万能指针 ===========\n");
+
+  int a = 123;
+  float b = 456.7;
+  char c = 'v';
+
+  // 隐式转换. C语言中,任意类型指针隐式转换为void *类型.
+  void *ptr_void1 = &a;
+  void *ptr_void2 = &b;
+  void *ptr_void3 = &c;
+
+  //  不能对void *指针解引用！
+  // *ptr_void1 = 789;      // 无法通过编译. 编译器不知道要读写多少字节，也不知道如何解释这些字节。
+
+  // 同样，不能对void *指针进行指针运算. 
+  // 在标准C语言中是不允许使用void *进行算术运算的，因为 void 是一个不完整的类型，其大小未知，编译器无法确定指针移动的步长. 
+  // 此处能够通过编译,并且sizeof(void)值为1，是因为所使用的编译器(GCC)提供了语言拓展，将void *的算术运算视为了char *的算术运算.这不是标准行为，容易导致错误逻辑。
+  int array[3] = { 0, 1, 2 };
+  void *vp = array;
+  printf("sizeof(void) 值: %d\n", sizeof(void));
+  printf("array[0] 地址: %p\n", array);
+  printf("array[1] 地址: %p\n", ++vp);
+
+  // 必须先经过强制类型转换才能解引用.
+  *(int *)ptr_void1 = 789;
+  printf("ptr_void1 值: %d\n", *(int *)ptr_void1);
+
+  *(char *)ptr_void3 = 'b';
+  printf("ptr_void3 值: %c\n", *(char *)ptr_void3);
+
+  // 转换的类型决定了编译器对该指针所指变量的解释方式.
+  int ver = 0xABCDEFFF;
+  void *cvp = &ver;
+  printf("转换成char: %02X\n", *(unsigned char *)cvp);    // 读取一个字节. 解释为 char 变量.
+  printf("转换成short: %04X\n", *(unsigned short *)cvp);  // 读取两个字节. 解释为 short 变量.
+  printf("转换成int: %08X\n", *(unsigned int *)cvp);      // 读取4个字节. 解释为 int 变量.
+  /*
+    @result:
+      sizeof(void) 值: 1
+      array[0] 地址: 000000000061FDE0
+      array[1] 地址: 000000000061FDE1
+      ptr_void1 值: 789
+      ptr_void3 值: b
+      转换成char: FF
+      转换成short: EFFF
+      转换成int: ABCDEFFF
+  */
+
+  printf("===============================================\n\n");
+}
+
+
+void function_A( void )
+{
+  printf("function_A has been called.\n");
+}
+
+int function_B_Sub( int x, int y )
+{
+  return x - y;
+}
+
+int function_C_Add( int x, int y )
+{
+  return x + y;
+}
+
+int function_D_Mult( int x, int y )
+{
+  return x * y;
+}
+
+int function_E_Divide( int x, int y )
+{
+  return x / y;
 }
