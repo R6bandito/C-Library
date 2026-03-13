@@ -79,9 +79,13 @@
   void array_example_demo1( void );
   void array_example_demo2( void );
   void array_example_demo3( void );
+  void array_example_demo4( void );
+  void array_example_demo5( void );
 
 
   void utils_displayintArrayLength( int *array );
+  char **get_str( void );
+  char *get_str_array( void );
 // -------------------------------------------------
 
 int global_arrayInt[5];            // 全局数组. 自动初始化为0.
@@ -96,7 +100,8 @@ int main( void )
   array_example_demo1();
   array_example_demo2();
   array_example_demo3();
-
+  array_example_demo4();
+  array_example_demo5();
 
   return 0;
 }
@@ -381,7 +386,206 @@ void array_example_demo3( void )
   // 不能通过指针修改字符串字面量.
   //*(p + 6) = 'w';   // 危险操作! 试图通过指针修改只读数据区的字符串字面量. 编译通过，运行出现段错误.
   //printf("修改后 p: %s\n", p);
-  
+
+  // 字符串字面量存储在常量数据区. 因此生命周期在整个程序运行阶段都存在. 但是不能依赖此特性返回局部指针！
+  // char **pptr_to_str = get_str();
+  // printf("get_str : %s\n", *pptr_to_str);     // 危险!! 访问已经销毁的指针变量.
+
+  char *ptr_to_array = get_str_array();
+  printf("ptr_to_array : %s\n", ptr_to_array);  // 危险！返回的局部数组. 尽管地址已经被调用者拿到，但是在作用域结束后 str 数组已被释放，指针访问到被销毁的数据. 行为未定义.
+
+  printf("===============================================\n\n");
+  /*
+    @result:
+      修改前 str: C programing
+      修改前 p: Hello,World
+
+      修改后 str: C Programing
+      ptr_to_array : (null)
+  */
 }
 
+char **get_str( void )
+{
+  char *ptr = "hello";
+
+  // 危险！ptr为局部变量,尽管 "hello" 生命周期在整个程序运行阶段，但是ptr本身存储在栈空间中，作用域结束时被销毁.
+  // 此处返回的ptr的地址 实际上一但离开作用域就被销毁了.
+  return &ptr;                                          // 编译报出警告: 返回局部变量的地址.
+}
+
+char *get_str_array( void )
+{
+  // 同样的，不能返回局部的数组. 一但离开作用域，局部数组str就被销毁.
+  // 而返回的地址就算被调用方正确拿到，但是由于地址指向的内存空间已经销毁，因此再访问时就会出现未定义行为.
+  char str[] = "Hello, C";
+
+  return str;
+}
+
+
+void array_example_demo4( void )
+{
+  printf("=========== 多维数组 ===========\n");
+
+  // 多维数组最简单的形式是二维数组,二维数组的定义与一维数组类似.
+  // 二维数组在本质上是一维数组的一个列表，声明一个 x 行 y 列的二维整型数组，形式如下：
+  //          typename arrayName[x][y] = { 初始化语句... };
+  // 其中. typename 可以是任意C语言的有效类型；x与y 分别是 二维数组的两个维度.
+
+  int array[3][4];          // 声明一个3行4列的int类型数组.这是一个包含3个数组的数组，每个子数组有4个int.
+  int (*p)[3][4] = &array;   // 注意：二维数组的类型为 int[x][y]，而不是 int**.
+
+  // 多维数组的初始化.
+  // ① 使用初始化语句进行完全初始化.
+  int array_A[2][3] = { {0, 1, 2}, {3, 4, 5} };
+  for( int i = 0; i < sizeof(array_A)/sizeof(array_A[0]); i++ )
+  {
+    for( int j = 0; j < sizeof(array_A[0])/sizeof(array_A[0][0]); j++ )
+    {
+      printf("array_A[%d][%d] = %d\t", i, j, array_A[i][j]);
+    }
+    printf("\n");
+  }
+
+  // ② 连续初始化.(从第一行开始，按照顺序逐行进行填充)
+  printf("\n");
+  int array_B[2][3] = { 0, 1, 2, 3, 4, 5 };
+  for( int i = 0; i < sizeof(array_B)/sizeof(array_B[0]); i++ )
+  {
+    for( int j = 0; j < sizeof(array_B[0])/sizeof(array_B[0][0]); j++ )
+    {
+      printf("array_B[%d][%d] = %d\t", i, j, array_B[i][j]);
+    }
+    printf("\n");
+  }
+
+  // ③ 同样支持部分初始化.
+  printf("\n");
+  int array_C[2][3] = { {1}, {3, 4} };  // 等价于 { {1, 0, 0}, {3, 4, 0} }.
+  for( int i = 0; i < sizeof(array_C)/sizeof(array_C[0]); i++ )
+  {
+    for( int j = 0; j < sizeof(array_C[0])/sizeof(array_C[0][0]); j++ )
+    {
+      printf("array_C[%d][%d] = %d\t", i, j, array_C[i][j]);
+    }
+    printf("\n");
+  }
+
+  // ④ C99特性引入的指定初始化方式.
+  printf("\n");
+  int array_D[2][3] = { [0][1] = 9, [1][2] = 8 }; // array_D[0][1] = 9, array_D[1][2] = 8.其余元素初始化为0.
+  for( int i = 0; i < sizeof(array_D)/sizeof(array_D[0]); i++ )
+  {
+    for( int j = 0; j < sizeof(array_D[0])/sizeof(array_D[0][0]); j++ )
+    {
+      printf("array_D[%d][%d] = %d\t", i, j, array_D[i][j]);
+    }
+    printf("\n");
+  }
+  printf("\n");
+
+
+  // 同样，编译器可推导第一维的大小，但是必须知道其它维度.
+  int array_E[][3] = {{0, 1}, {2, 4}, {3, 6}};    // 自动推导为 int array_E[3][3];
+  // int array_F[][] = { {1}, {2} };              // 错误! 编译器不知道子数组(第二维)大小.
+
+  // 多维数组同一维数组一样，可以采用 下标访问 与 指针访问.
+  int array_G[2][3] = { {1, 2, 3}, {4, 5, 6} };
+  printf("array_G[1][2] = %d\n", array_G[1][2]);  // 第二行最后一个元素(6).
+  printf("array_G[0][2] = %d\n", *(*array_G + 2)); // 第一行最后一个元素(3).
+
+  // 二维数组的指针运算.
+  int array_H[2][3] = { {1, 2, 3}, {4, 5, 6} };
+  int (*p1)[3] = array_H;                          // 指向第一个子数组（第一行）.
+  printf("array_H 的地址: %p\n", array_H);
+  printf("p1 的地址: %p\n", p1);
+  printf("p1 + 1的地址: %p\n", (p1 + 1));          // 由于p1是指向int[3]类型的指针，因此移动 3 * sizeof(int) = 12个字节，指向第二个子数组.
+  printf("(p1 + 1) - p1 = %d\n", (char *)(p1 + 1) - (char *)p1);
+
+  int *p2 = array_H[1];                           // 指向第二行(第二个子数组)首元素(4).
+  printf("p2 的地址: %p\tp2 的值: %d\n", p2, *p2);
+  printf("p2+1 的地址: %p\tp2+1 的值: %d\n", (p2 + 1), *(p2 + 1));  // p2是指向int类型的指针，因此移动 sizeof(int) = 4个字节. 指向该行中下一个int元素.
+  printf("(p2 + 1) - p2 = %d\n", (char *)(p2 + 1) - (char *)p2);
+
+  // 二维数组数组名代表整个二维数组对象，它在内存中是一块连续的存储空间，按行优先顺序存放所有元素.
+  // 在大多数情况下 二维数组数组名会退化为指向第一行(第一个子数组)的指针.
+  // 注意：数组的数组名都是常量！！
+  int array_I[2][3] = { {1, 2, 3}, {4, 5, 6} };
+
+  // array_I是指向第一行子数组的指针(指针退化);(array_I + 1)将指针指向第二行子数组; *(array_I + 1)表示将指针指向第二行子数组第一个元素(4);
+  // (*(array_I + 1) + 2) 表示将指针移动到第二行的最后一个元素(6).
+  // *((*(array_I + 1)) + 2) 最后解引用表示取第二行最后一个元素的值6，并将其修改为 99.
+  *((*(array_I + 1)) + 2) = 99; 
+  printf("array_I[1][2] = %d\n", array_I[1][2]); 
+
+  // 对数组名取地址(&) 得到指向整个二维数组的指针.它与退化后的指针值相同，但步长是整个数组的大小.
+  int (*p_A)[2][3] = &array_I;
+
+  // sizeof(二维数组名)得到的是整个数组的大小！ 无论几维数组，使用sizeof关键字得到的都是总大小.
+  printf("二维数组 array_I 的大小: %zu\n", sizeof(array_I));  // 大小 = 3 * sizeof(int) * 2 = 24字节.
+
+  // 三维数组定义:
+  int RGB[3][16][16]; // 以 RGB数组为例.可以理解为有三个平面，每个平面为16*16的表格即可.
+
+  // 三维数组的初始化.
+  int cube[2][3][3] = {
+    {{0,1,2}, 
+     {3,4,5},
+     {6,7,8}}, 
+
+    {{9,10,11},
+     {12,13,14},
+     {15,16,17}}
+    };
+
+  // 三维数组指针运算与数组名性质与二维数组类似.
+  // (cube + 1): 指向cube三维数组的第二面.
+  // (*(cube + 1)): 解引用使指针从指向面 变为 指向 行.(目前指针指向第二面的第一行{9,10,11}).
+  // ((*(cube + 1)) + 1): 将当前指针指向当前面(第二面)的第二行({12,13,14}).
+  // (*((*(cube + 1)) + 1)): 再解一次引用，使指针从指向行 变为 指向 元素.(目前指针指向第二面第二行第一个元素(12)).
+  // ((*((*(cube + 1)) + 1)) + 2): 将指针指向当前面(第二面)，当前行(第二行)的第三个元素(14).
+  // *((*((*(cube + 1)) + 1)) + 2): 最后再解一次引用得到 第二面第二行第三个元素的值，并将其修改为 99.
+  // 可以看到高维数组的指针操作十分复杂，对于高维数组尽量使用下标访问.
+  *((*((*(cube + 1)) + 1)) + 2) = 99;
+  printf("cube[1][1][2] = %d\n", cube[1][1][2]);
+
+  // 更高维的数组以此类推.
+
+  printf("===============================================\n\n");
+  /*
+    array_A[0][0] = 0       array_A[0][1] = 1       array_A[0][2] = 2
+    array_A[1][0] = 3       array_A[1][1] = 4       array_A[1][2] = 5
+
+    array_B[0][0] = 0       array_B[0][1] = 1       array_B[0][2] = 2
+    array_B[1][0] = 3       array_B[1][1] = 4       array_B[1][2] = 5
+
+    array_C[0][0] = 1       array_C[0][1] = 0       array_C[0][2] = 0
+    array_C[1][0] = 3       array_C[1][1] = 4       array_C[1][2] = 0
+
+    array_D[0][0] = 0       array_D[0][1] = 9       array_D[0][2] = 0
+    array_D[1][0] = 0       array_D[1][1] = 0       array_D[1][2] = 8
+
+    array_G[1][2] = 6
+    array_G[0][2] = 3
+    array_H 的地址: 000000000061FCC0
+    p1 的地址: 000000000061FCC0
+    p1 + 1的地址: 000000000061FCCC
+    (p1 + 1) - p1 = 12
+    p2 的地址: 000000000061FCCC     p2 的值: 4
+    p2+1 的地址: 000000000061FCD0   p2+1 的值: 5
+    (p2 + 1) - p2 = 4
+    array_I[1][2] = 99
+    二维数组 array_I 的大小: 24
+    cube[1][1][2] = 99
+  */
+}
+
+
+void array_example_demo5( void )
+{
+  printf("=========== 多维数组的函数参数传递 ===========\n");
+
+
+}
 
