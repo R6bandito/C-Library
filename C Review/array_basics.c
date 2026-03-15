@@ -66,7 +66,37 @@
       |__ 局部数组(在函数内部定义的、未加 static 修饰的数组)不会自动初始化. 它的初始值是不确定的(即之前栈上遗留的随机值)，直接使用可能导致未定义行为.
       |__ 数组只能在定义时进行整体初始化. 定义结束后，后续不能够对数组进行整体赋值.只能逐个元素赋值或使用memcpy.
 
+    
+    5.多维数组.
+      |__ C 语言支持多维数组,最简单的多维数组为二维数组.
+      |__ 二维数组的声明：typename arrayName[x][y]; 三维数组的声明: typename arrayName[z][x][y] 更高维以此类推.
+      |__ 多维数组的函数名一样会发生退化，且均向下一级进行退化.int array[3][4], array发生退化后，退化为 int(*)[4].
+      |__ 多维数组作为函数参数进行传递时，数组名会发生退化，使用数组名是需注意.
+      |__ 对于 n 维数组，作为参数时，最左边一维可省略，但其余 n-1 维必须全部指定.
+        ------------------------------------
+          example:
+            int array[3][4];    func_A( int [][4], ... );    // 二维数组知道第二维. 合法.编译器能够正确计算偏移地址.
+            int array[3][4][5]; func_B( int [][4][5], ... );  // 三维数组知道第二维和第三维. 合法.
 
+            func_C( int [][], ... );                          // 不合法. 两维均不知道，编译器无法正确计算偏移.
+            func_D( int [][][5], ... );                       // 不合法. 只提供了第三维大小，信息不全无法正确计算.
+        ------------------------------------
+
+      |__ 不管数组维数再高，其底层都是**线性连续的存储布局**.
+
+
+    6.VLA数组(C99特性).
+      |__ 常规数组需要在编译时确定数组大小. 但是 VLA 数组允许在程序运行阶段再确定数组大小.
+      |__ VLA数组的存储位置必须位于栈上. 
+      |__ VLA数组不能被 extern , static 关键字修饰，不能存在于结构体中（哪怕以指针形式）.
+      |__ VLA数组可以被 const 关键字修饰.因为const不要求其值在编译时确定.局部 const 变量存储在栈上，其值在运行时初始化，之后不可修改.
+      |__ VLA数组作为函数参数时,其尺寸参数必须在参数表之前!
+        ------------------------------------
+          example:
+            void process_2d(int rows, int cols, int arr[rows][cols]);  // 合法. 尺寸参数在前.
+            void process_wrong(int arr[rows][cols], int rows, int cols); // 不合法. 尺寸参数在后.
+        ------------------------------------
+        
 */
 
 
@@ -76,16 +106,26 @@
 
 // -------------------------------------------------
   // 各个示例函数.
-  void array_example_demo1( void );
-  void array_example_demo2( void );
-  void array_example_demo3( void );
-  void array_example_demo4( void );
-  void array_example_demo5( void );
+  void array_example_demo1( void );   // 数组的定义与初始化
+  void array_example_demo2( void );   // 数组的访问 与 数组名特性
+  void array_example_demo3( void );   // 字符数组 与 字符指针 区别
+  void array_example_demo4( void );   // 多维数组
+  void array_example_demo5( void );   // 多维数组的函数参数传递
+  void array_example_demo6( void );   // C99新特性: 可变长数组
 
 
   void utils_displayintArrayLength( int *array );
+  void utils_GetArray_Length_A( int array[3][4], int rows, int colwns );
+  void utils_GetArray_Length_B( int array[][4], int rows, int colwns );
+  // void utils_GetArray_Length_C( int array[][], int rows, int colwns );
+  void utils_GetArray_Length_D( int (*array)[4], int rows, int colwns );
+  void utils_GetArray_Length_E( int **array, int rows, int colwns );
+  void utils_VLA_example_1( int rows, int colwns, int VLAarray[rows][colwns] );
+  // void utils_VLA_example_2( int VLAarray[rows][colwns], int rows, int colwns );
+  void utils_VLA_example_3( int rows, int colwns, int (*VLAptr)[colwns] );
   char **get_str( void );
   char *get_str_array( void );
+  int Get_Size( void );
 // -------------------------------------------------
 
 int global_arrayInt[5];            // 全局数组. 自动初始化为0.
@@ -102,6 +142,7 @@ int main( void )
   array_example_demo3();
   array_example_demo4();
   array_example_demo5();
+  array_example_demo6();
 
   return 0;
 }
@@ -523,6 +564,7 @@ void array_example_demo4( void )
   int (*p_A)[2][3] = &array_I;
 
   // sizeof(二维数组名)得到的是整个数组的大小！ 无论几维数组，使用sizeof关键字得到的都是总大小.
+  // 注意！在参数传递的情况下会发生数组名退化，此时 在相关函数中，sizeof(数组名) 得到的是指针大小！
   printf("二维数组 array_I 的大小: %zu\n", sizeof(array_I));  // 大小 = 3 * sizeof(int) * 2 = 24字节.
 
   // 三维数组定义:
@@ -586,6 +628,205 @@ void array_example_demo5( void )
 {
   printf("=========== 多维数组的函数参数传递 ===========\n");
 
+  int MyArray_A[3][4] = { {0}, {1,2}, {3,4} };
+  utils_GetArray_Length_A(MyArray_A, 3, 4);
+  utils_GetArray_Length_B(MyArray_A, 3, 4);
+  // utils_GetArray_Length_C(MyArray_A, 3, 4);
+  utils_GetArray_Length_D(MyArray_A, 3, 4);
+  // utils_GetArray_Length_E(MyArray_A, 3, 4);        // int(*)[4] 隐式转换为 int **. 运行导致段错误.
 
+  printf("===============================================\n\n");
+  /*
+    @result:
+      utils_GetArray_Length_A:sizeof(array): 8
+      array[0][0] = 0         array[0][1] = 0         array[0][2] = 0         array[0][3] = 0
+      array[1][0] = 1         array[1][1] = 2         array[1][2] = 0         array[1][3] = 0
+      array[2][0] = 3         array[2][1] = 4         array[2][2] = 0         array[2][3] = 0
+
+      utils_GetArray_Length_B:sizeof(array): 8
+      array[0][0] = 0         array[0][1] = 0         array[0][2] = 0         array[0][3] = 0
+      array[1][0] = 1         array[1][1] = 2         array[1][2] = 0         array[1][3] = 0
+      array[2][0] = 3         array[2][1] = 4         array[2][2] = 0         array[2][3] = 0
+
+      utils_GetArray_Length_D:sizeof(array): 8
+      array[0][0] = 0         array[0][1] = 0         array[0][2] = 0         array[0][3] = 0
+      array[1][0] = 1         array[1][1] = 2         array[1][2] = 0         array[1][3] = 0
+      array[2][0] = 3         array[2][1] = 4         array[2][2] = 0         array[2][3] = 0
+  */
 }
+
+// 指定所有维度的参数传递.最安全.(编译器知道具体的列数，能够正确计算偏移)
+void utils_GetArray_Length_A( int array[3][4], int rows, int colwns ) // 接收一个 三行四列的 array数组作为参数.
+{
+  // 注意：数组作为函数参数传入时，会发生函数名的退化！此处 sizeof(array) 将返回的是 int(*)[4] 的大小. 固定为8字节(64位系统).
+  printf("utils_GetArray_Length_A:sizeof(array): %zu\n", sizeof(array));
+
+  for( int i = 0; i < rows; i++ )
+  {
+    for( int j = 0; j < colwns; j++ )
+    {
+      printf("array[%d][%d] = %d\t\t", i, j, array[i][j]);
+    }
+    printf("\n");
+  }
+
+  printf("\n");
+}
+
+
+// 不指定第一维(行数可变).由于已知列数，所以编译器依然能够正确计算偏移. 不过需注意可能的越界访问.
+void utils_GetArray_Length_B( int array[][4], int rows, int colwns )
+{
+  printf("utils_GetArray_Length_B:sizeof(array): %zu\n", sizeof(array));  // 函数名退化，得到指针 int(*)[4] 的大小.
+
+  for( int i = 0; i < rows; i++ )
+  {
+    for( int j = 0; j < colwns; j++ )
+    {
+      printf("array[%d][%d] = %d\t\t", i, j, array[i][j]);
+    }
+    printf("\n");
+  }
+
+  printf("\n");
+}
+
+
+// 错误！ int array[][] 不允许作为函数参数，因为不知道具体的列数是多少，编译器无法正确计算偏移地址.
+// 一定要知道列数!!!
+// void utils_GetArray_Length_C( int array[][], int rows, int colwns )
+// {
+//   // ...
+// }
+
+
+// 使用数组指针语法进行参数传递(与 int array[3][4] 是等价的，array发生数组名退化后就等于 int(*)[4] ).
+// 注意 int (*array)[4] 一定要加括号(). 若写成 int *array[4]，则代表array为int *类型的大小为4的一个指针数组!
+void utils_GetArray_Length_D( int (*array)[4], int rows, int colwns )
+{
+  printf("utils_GetArray_Length_D:sizeof(array): %zu\n", sizeof(array));
+
+  for( int i = 0; i < rows; i++ )
+  {
+    for( int j = 0; j < colwns; j++ )
+    {
+      printf("array[%d][%d] = %d\t\t", i, j, *(*(array + i) + j)); // 也可以使用 array[i][j]. 等价的
+    }
+    printf("\n");
+  }
+
+  printf("\n");
+}
+
+
+// !!错误. 尽管能通过编译，但是二维数组不是指针的指针！会导致 array[i][j] 错误解引用 从而触发段错误.
+// 为什么？ 因为二维数组内存布局与双指针不同,当调用utils_GetArray_Length_E(MyArray_A, 3, 4)时.MyArray_A会隐式转换为int **类型，因此编译器并不会报出错误.
+// 但是这是完全错误的类型转换.实际传入的MyArray_A的首地址被函数内部解释为 int **.
+// 函数内部，array[i][j]语句被解释为  *( *(array + i) + j ). 但是由于array是int **.因此地址计算时偏移 array + i = i * sizeof(int *)字节.
+// 然后 *(array + i) 从该地址读取一个值，这个值被当作 int *.但实际上，这个地址上存储的是数组元素,将其作为地址去解引用，必然导致段错误.
+// 因此务必注意，在多维数组传递参数时，不能用对应维度的多重指针进行接收！
+void utils_GetArray_Length_E( int **array, int rows, int colwns )
+{
+  printf("utils_GetArray_Length_E:sizeof(array): %zu\n", sizeof(array));
+
+  for( int i = 0; i < rows; i++ )
+  {
+    for( int j = 0; j < colwns; j++ )
+    {
+      printf("array[%d][%d] = %d\t\t", i, j, array[i][j]); 
+    }
+    printf("\n");
+  }
+
+  printf("\n");
+}
+
+
+
+void array_example_demo6( void )
+{
+  printf("=========== C99新特性: 可变长数组 ===========\n");
+
+  // C99 标准引入了可变长数组(VLA)特性： 即 允许在栈上分配运行时确定大小的数组.
+  // VLA数组的大小在运行时才确定,而普通全局数组在编译时就必须确定大小.
+  // 运行时一但确定了大小，便不能够再重新分配.
+  int deepth_A = Get_Size();
+  // ps: 由于VLA数组存储在栈上，因此需要格外注意由于局部数组过大导致栈溢出的问题.
+  int VLAarray[deepth_A];         // 注：VLA数组的存储位置是在函数帧栈上.(不能是全局数组或静态数组) 函数返回时自动释放.
+
+  // int VLAarray_A[deepth] = {1, 2, 3};      // VLA数组不能够进行初始化.
+
+  printf("sizeof(VALarray) = %zu\n", sizeof(VLAarray));
+
+  // 传统数组
+  int static_array[10];           // 编译时已知大小
+  sizeof(static_array);           // 编译时计算
+  // VLA
+  int n = 10;
+  int vla[n];                     // 运行时确定大小
+  sizeof(vla);                    // 运行时计算！返回n*sizeof(int)
+
+  
+  // 多维 VLA 数组.
+  int height = Get_Size();
+  int width = Get_Size();
+  int VLAarray_image[height][width];            // 二维VLA数组.
+
+  int deepth = Get_Size();
+  int VLAarray_voxels[height][width][deepth];   // 三维VLA数组.
+
+
+  // VLA数组作为函数参数传递.
+  utils_VLA_example_1( height, width, VLAarray_image);
+  utils_VLA_example_3( height, width, VLAarray_image);
+
+  // 注意：VLA数组不能在结构体中. 不能使用 static 或 extern 进行修饰.
+  int q = 10; int p = 5;
+  // static int VLAarray_static[n][p];             // 编译错误. 不能使用 static 修饰 VLA.
+                                                  // static 修饰的变量其内存在程序启动时分配,在编译阶段就必须确定大小.
+
+  // extern int VLAarray_ext[n][p];                  // 编译错误.extern 用于声明在其他地方定义的变量，要求数组类型在编译时完全确定（包括大小）.
+
+  struct S 
+  {
+    // int VLAarray_struct[n][p];   // 编译错误.结构体是一种类型定义，编译器在编译时必须知道每个成员的偏移量和整个结构体的大小，以便生成访问代码（例如通过 -> 或 . 访问成员）.
+    // int (*VLAptr)[p];
+  };
+
+  printf("===============================================\n\n");
+  /*
+    @result:
+      sizeof(VALarray) = 168
+      utils_VLA_example_1: rows = 68  colwns = 35     VLAarray[67][34] = 99
+      utils_VLA_example_3: rows = 68  colwns = 35     VLAarray[67][34] = 99
+  */
+}
+
+int Get_Size( void )
+{
+  return rand() % 100 + 1;
+}
+
+// 正确参数传递. 尺寸参数在前, 可以正常运行.
+void utils_VLA_example_1( int rows, int colwns, int VLAarray[rows][colwns] )
+{
+  VLAarray[rows - 1][colwns - 1] = 99;
+  printf("utils_VLA_example_1: rows = %d\tcolwns = %d\tVLAarray[%d][%d] = %d\n", rows, colwns, rows - 1, colwns - 1, VLAarray[rows - 1][colwns - 1]);
+}
+
+
+// 错误参数传递. 尺寸参数在后,编译错误：未定义的标识符rows, cols.
+// void utils_VLA_example_2( int VLAarray[rows][colwns], int rows, int colwns )
+// {
+
+// }
+
+
+// 使用指针形式参数进行接收. 等价于 int VLAarray[rows][colwns].
+void utils_VLA_example_3( int rows, int colwns, int (*VLAptr)[colwns] )
+{
+  VLAptr[rows - 1][colwns - 1] = 99;
+  printf("utils_VLA_example_3: rows = %d\tcolwns = %d\tVLAarray[%d][%d] = %d\n", rows, colwns, rows - 1, colwns - 1, VLAptr[rows - 1][colwns - 1]);
+}
+
 
